@@ -1,25 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
+import React, { useEffect, useState } from 'react';
+import { Text, View, StyleSheet } from 'react-native';
 import * as Location from 'expo-location';
 
-export default function SpeedLimitApp() {
-  const [location, setLocation] = useState(null);
-  const [errorMsg, setErrorMsg] = useState(null);
+export default function App() {
+  const [speed, setSpeed] = useState(null);
   const [speedLimit, setSpeedLimit] = useState(null);
 
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setErrorMsg('Permission to access location was denied');
+        console.error('Permission to access location was denied');
         return;
       }
 
-      Location.watchPositionAsync({ accuracy: Location.Accuracy.Highest, distanceInterval: 1 }, (location) => {
-        setLocation(location);
+      const fetchSpeedData = async () => {
+        const location = await Location.getCurrentPositionAsync({});
+        setSpeed(location.coords.speed * 2.23694); // Convert m/s to mph
         fetchSpeedLimit(location.coords.latitude, location.coords.longitude);
-      });
+      };
+
+      const intervalId = setInterval(fetchSpeedData, 1000);
+
+      return () => clearInterval(intervalId);
     })();
   }, []);
 
@@ -33,31 +36,8 @@ export default function SpeedLimitApp() {
 
   return (
     <View style={styles.container}>
-      {location && (
-        <MapView
-          style={styles.map}
-          provider={PROVIDER_GOOGLE}
-          initialRegion={{
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
-          }}
-        >
-          <Marker
-            coordinate={{
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-            }}
-            title="You are here"
-          />
-        </MapView>
-      )}
-      {speedLimit && (
-        <View style={styles.speedLimitContainer}>
-          <Text style={styles.speedLimitText}>Speed Limit: {speedLimit} mph</Text>
-        </View>
-      )}
+      <Text style={styles.speedText}>{speed !== null ? `${speed.toFixed(2)} mph` : 'Waiting for location...'}</Text>
+      <Text style={styles.speedLimitText}>{speedLimit !== null ? `Speed Limit: ${speedLimit} mph` : ''}</Text>
     </View>
   );
 }
@@ -65,20 +45,17 @@ export default function SpeedLimitApp() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  map: {
-    flex: 1,
-  },
-  speedLimitContainer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    padding: 10,
-    borderRadius: 10,
+  speedText: {
+    fontSize: 40,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
   },
   speedLimitText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 20,
+    textAlign: 'center',
   },
 });
